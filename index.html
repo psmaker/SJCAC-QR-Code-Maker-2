@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>QR code creator demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <!-- 
+  Credit to: https://github.com/nimiq/qr-creator/blob/master/demo/index.html for the major lifting
+  of the QR code generation and the style of the page. I just added the features to add an icon,
+  add a border and save to a file - pretty minor compared to what was already done...
+  -->
+</head>
+
+<body class="state-loading">
+  <header>
+    <h1>SJCAC QR Code Generator</h1>
+  </header>
+  <main>
+    <section>
+    </section>
+    <section id="qr-code">
+    </section>
+
+    <section id="tools">
+      <label>Text/Link: <input id="text" type="text" style="width: 300px;" value="Enter your text/link here"></label>
+      <label>Border Size:
+        <input id="borderSize" type="range" value="5" step="1" min="0" max="10">
+      </label>
+      <label>Radius: <input id="radius" type="range" value="0.5" step="0.025" min="0" max="0.5"></label>
+      <label>Error correction:
+        <select id="ecLevel">
+          <option value="L" label="Low, 7%">
+          <option value="M" label="Medium, 15%">
+          <option value="Q" label="Quarter, 25%" selected>
+          <option value="H" label="High, 30%">
+        </select></label>
+      <label>Color: <input id="fill" type="color" value="#0064a8"></label>
+      <label>Background:<br>
+        <input id="transparent" type="checkbox" unchecked> transparent
+        <input id="background" type="color" value="#fffbb9" style="display: inline-block;">
+      </label>
+      <label>Size: <input id="size" type="range" value="250" step="10" min="20" max="600"></label>
+
+      <label>Icon:<br>
+        <input id="drawIcon" type="checkbox" checked> Include Icon</input>
+        <input id="icon" type="file"></input>
+        <button id="clearIcon">Revert to SJCAC default logo</button>
+      </label>
+      <button id="saveQRCode" class="highlight-button">Save QR Code</button>
+    </section>
+
+    <!-- TODO: Remove the paremeter section later -->
+    <section id="parameters" style="display: none;" ;>
+      <label>Parameters:</label>
+      <pre id="json"></pre>
+    </section>
+
+
+  </main>
+
+  <link rel="stylesheet" href="style.css">
+
+  <script type="module">
+
+    const SHOW_PARAM = false;
+    if (SHOW_PARAM) {
+      document.querySelector('#parameters').style.display = 'inline-block';
+    }
+
+    import QrCreator from 'https://cdn.jsdelivr.net/npm/qr-creator/dist/qr-creator.es6.min.js';
+
+    const qrCodeContainer = document.querySelector('#qr-code');
+    const borderSizeInput = document.querySelector('#borderSize');
+    const backgroundColorInput = document.querySelector('#background');
+
+    const clearIconBtn = document.getElementById('clearIcon');
+    const drawIconBox = document.getElementById('drawIcon')
+    const iconInput = document.querySelector('#icon');
+    const saveQRCodeBtn = document.getElementById('saveQRCode');
+
+    let selectedIconFile = null;
+
+    let availableSettings = ['text', 'radius', 'ecLevel', 'fill', 'background', 'size'];
+
+    function readSettings() {
+      let settings = {};
+      for (let setting of availableSettings) {
+        settings[setting] = document.querySelector('#' + setting).value;
+      }
+      if (document.querySelector('#transparent').checked) {
+        settings.background = null;
+        document.querySelector('#background').style.display = 'none';
+      } else {
+        document.querySelector('#background').style.display = 'inline-block';
+      }
+      selectedIconFile = iconInput.files[0];
+      return settings;
+    }
+
+    function renderQrCode() {
+      let container = document.querySelector('#qr-code');
+      let settings = readSettings();
+      const qrCodeSize = settings['size'];
+      const borderSize = qrCodeSize * borderSizeInput.value / 100;
+
+      container.innerHTML = '';
+
+      // Create a full square canvas that is the size of the QR code + borders
+      const fullCanvas = document.createElement('canvas');
+      fullCanvas.width = 2 * borderSize + parseInt(qrCodeSize);
+      fullCanvas.height = fullCanvas.width;
+      const fullContext = fullCanvas.getContext('2d');
+      if (settings.background) {
+        fullContext.fillStyle = settings['background'];
+      } else {
+        fullContext.fillStyle = 'rgba(0, 0, 0, 0)';
+      }
+      fullContext.fillRect(0, 0, fullCanvas.width, fullCanvas.height);
+
+      // Draw the QR code with the settings using render() - doesn't draw any borders
+      const QRcanvas = document.createElement('canvas');
+      QRcanvas.innerHTML = '';
+      QrCreator.render(settings, QRcanvas);
+
+      // Draw icon inside the QR Code if enabled
+      if (document.querySelector('#drawIcon').checked) {
+        const iconImage = new Image();
+        iconImage.onload = function () {
+          const iconSize = qrCodeSize / 4;                // make icon 1/4 size of QR code
+          const iconX = (qrCodeSize - iconSize) / 2;
+          const iconY = (qrCodeSize - iconSize) / 2;
+          const iconCanvas = document.createElement('canvas');
+          iconCanvas.width = iconSize;
+          iconCanvas.height = iconSize;
+          const iconContext = iconCanvas.getContext('2d');
+          iconContext.drawImage(iconImage, 0, 0, iconSize, iconSize);
+
+          // draw icon centered onto QR code
+          const qrCodeContext = QRcanvas.getContext('2d');
+          qrCodeContext.drawImage(iconCanvas, iconX, iconY, iconSize, iconSize);
+
+          // draw QR code into the full canvas
+          fullContext.drawImage(QRcanvas, borderSize, borderSize, qrCodeSize, qrCodeSize);
+
+          // Display the tools to reset the icon back to the SJCAC default icon
+          if (selectedIconFile) {
+            clearIconBtn.style.display = 'inline-block';
+          } else {
+            clearIconBtn.style.display = 'none';
+          }
+
+        };
+
+        // Use default logo if no icon is uploaded
+        iconImage.src = selectedIconFile ? URL.createObjectURL(selectedIconFile) : 'sjcac.png';
+
+        iconInput.style.display = 'inline-block';
+
+      } else {
+        // Remove icon GUI elements if not wanting an icon in the QR code
+        iconInput.style.display = 'none';
+        clearIconBtn.style.display = 'none';
+      }
+
+      fullContext.drawImage(QRcanvas, borderSize, borderSize, qrCodeSize, qrCodeSize);
+
+      container.appendChild(fullCanvas);
+
+      // Update the parameter settings for display
+      document.querySelector('#json').innerText = JSON.stringify(settings, null, 2);
+    }
+
+    // Set up event listener for ALL the tools options - re-render QR code upon any change
+    for (let input of document.querySelectorAll('input, select')) {
+      input.addEventListener('change', renderQrCode);
+    }
+    renderQrCode();
+
+    // Clear the selected icon file and revert to the default logo
+    clearIconBtn.addEventListener('click', function () {
+      iconInput.value = ''; // Clear the input field
+      selectedIconFile = null;
+      renderQrCode();
+    });
+
+    // Save the QR code image when the "Save QR Code" button is clicked
+    saveQRCodeBtn.addEventListener('click', function () {
+      const qrCodeCanvas = document.querySelector('#qr-code').querySelector('canvas');
+      const downloadLink = document.createElement('a');
+      downloadLink.href = qrCodeCanvas.toDataURL('image/png');
+      downloadLink.download = 'qrcode.png';
+      downloadLink.click();
+    });
+
+  </script>
+</body>
+
+</html>
