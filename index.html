@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="utf-8">
-  <title>QR code creator demo</title>
+  <title>SJCAC QR code creator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <!-- 
   Credit to: https://github.com/nimiq/qr-creator/blob/master/demo/index.html for the major lifting
@@ -47,7 +47,7 @@
       <label>Icon:<br>
         <input id="drawIcon" type="checkbox" checked> Include Icon</input>
         <input id="icon" type="file"></input>
-        <button id="clearIcon">Revert to SJCAC default logo</button>
+        <button id="clearIcon" style="display: none;">Revert to SJCAC default logo</button>
       </label>
       <button id="saveQRCode" class="highlight-button">Save QR Code</button>
     </section>
@@ -177,7 +177,8 @@
     for (let input of document.querySelectorAll('input, select')) {
       input.addEventListener('change', renderQrCode);
     }
-    renderQrCode();
+    //console.log("first render");
+    //renderQrCode();
 
     // Clear the selected icon file and revert to the default logo
     clearIconBtn.addEventListener('click', function () {
@@ -193,6 +194,11 @@
       downloadLink.href = qrCodeCanvas.toDataURL('image/png');
       downloadLink.download = 'qrcode.png';
       downloadLink.click();
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {   
+      // Trigger initial QR code rendering
+      renderQrCode();
     });
 
   </script>
